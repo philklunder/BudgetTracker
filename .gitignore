@@ -1,0 +1,19 @@
+# Build-Ergebnisse
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Rider / ReSharper
+.idea/
+_ReSharper*/
+
+# Claude Code (lokale Einstellungen)
+.claude/
+
+# OS
+Thumbs.db
+.DS_Store
