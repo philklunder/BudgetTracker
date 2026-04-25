@@ -72,6 +72,70 @@ Wenn ich sage, dass wir mit Schritt 1, 2, 3 oder 4 anfangen, möchte ich, dass d
 - Einfache Auswertung
 - Später optional MVVM
 
+## Fortschritt – was bisher gemacht wurde
+
+### Schritt 1–3 (erledigt)
+- **Schritt 1 – Projektstruktur:** WPF-Projekt angelegt, Ordner `Models/` für Datenklassen erstellt.
+- **Schritt 2 – Klassen:** `Transaction` (Datenklasse mit `Amount`, `Category`, `Description`, `Date`, `Type`) und das Enum `TransactionType` (`Income`, `Expense`).
+- **Schritt 3 – UI:** `MainWindow.xaml` mit Eingabeformular (Betrag, Kategorie, Beschreibung, Datum, Typ), `ListView` für die Einträge und `TextBlock` für den Kontostand.
+
+### Schritt 4 – Logik zum Hinzufügen von Einträgen
+
+Schritt 4 wurde in kleine Unter-Schritte zerlegt, damit man jede Idee für sich verstehen kann.
+
+#### 4.1 – Liste für Transactions in MainWindow anlegen
+In `MainWindow.xaml.cs` wird ein privates Feld angelegt:
+
+```csharp
+private List<Transaction> _transactions = new List<Transaction>();
+```
+
+**Warum?** Die App braucht einen Ort, an dem alle eingegebenen Einträge im Speicher gehalten werden, solange das Fenster offen ist. `List<Transaction>` ist die einfachste Wahl: dynamisch erweiterbar, leicht zu durchlaufen. Der Unterstrich (`_transactions`) ist eine verbreitete Konvention für private Felder.
+
+#### 4.2 – Button-Click-Handler verdrahten
+Im XAML hat der Button `Click="AddButton_Click"`. Dadurch sucht WPF beim Klick nach einer Methode dieses Namens im Code-Behind:
+
+```csharp
+private void AddButton_Click(object sender, RoutedEventArgs e)
+{
+    // Hier passiert gleich die eigentliche Logik
+}
+```
+
+**Warum?** WPF arbeitet event-basiert – auf Aktionen des Nutzers (Klick, Tastatur, …) reagieren wir mit Methoden, sogenannten *Event-Handlern*. `sender` ist das Element, das das Event ausgelöst hat (hier der Button), `e` enthält Zusatzinfos zum Event.
+
+#### 4.3 – Eingaben aus dem Formular auslesen, parsen und validieren
+Im Click-Handler holen wir die Werte aus den UI-Elementen und wandeln sie in die richtigen Typen um.
+
+**Was muss umgewandelt werden?**
+
+| UI-Element | Liefert | Brauchen wir als |
+|---|---|---|
+| `AmountTextBox.Text` | `string` | `decimal` |
+| `CategoryTextBox.Text` | `string` | `string` |
+| `DescriptionTextBox.Text` | `string` | `string` |
+| `DatePicker.SelectedDate` | `DateTime?` (nullable) | `DateTime` |
+| `TypeComboBox.SelectedItem` | `object` (ein `ComboBoxItem`) | `TransactionType` (Enum) |
+
+**Die kniffligen Stellen:**
+
+1. **`decimal.TryParse`** – Der Nutzer könnte `"abc"` eingeben. `TryParse` versucht die Umwandlung, gibt `true`/`false` zurück und schreibt das Ergebnis über das `out`-Schlüsselwort in unsere Variable. Klappt es nicht, zeigen wir eine Fehlermeldung und brechen mit `return;` ab.
+
+2. **`?? DateTime.Today`** – Der `??`-Operator (Null-Coalescing) bedeutet: *„Wenn der Wert links `null` ist, nimm den rechten."* `DatePicker.SelectedDate` kann `null` sein, wenn der Nutzer kein Datum gewählt hat – dann nehmen wir einfach das heutige Datum.
+
+3. **ComboBox auslesen** – Aus `SelectedItem` kommt ein `ComboBoxItem`-Objekt zurück, kein String und schon gar kein Enum. Wir holen den angezeigten Text (`"Einnahme"` / `"Ausgabe"`) und mappen ihn mit dem ternären Operator (`? :`) auf `TransactionType.Income` bzw. `Expense`.
+
+Am Ende von 4.3 gibt es eine `MessageBox` als Test-Ausgabe – damit man sofort sieht, dass alle Werte korrekt erkannt werden, **bevor** wir sie in 4.4 wirklich zur Liste hinzufügen.
+
+**Lerneffekt von 4.3:**
+- Sicheres Umwandeln von Strings in andere Typen (`TryParse` statt `Parse`)
+- Umgang mit nullable Typen (`?`, `??`)
+- Sichere Casts mit `as` und Null-sichere Aufrufe mit `?.`
+- Trennung von „Werte einsammeln" und „Werte verwenden" – das macht den Code übersichtlicher und macht Schritt 4.4 einfacher.
+
+#### 4.4 – Transaction zur Liste hinzufügen + Felder leeren *(noch offen)*
+#### 4.5 – ListView mit der Liste verbinden *(noch offen)*
+
 ## Status
 
 Work in Progress – wird laufend erweitert, während ich neue Konzepte lerne.

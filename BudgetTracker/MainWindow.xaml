@@ -46,6 +46,7 @@
                 <Button Grid.Row="5" Grid.Column="1"
                         x:Name="AddButton"
                         Content="Hinzufügen"
+                        Click="AddButton_Click"
                         Margin="0,10,0,0"
                         HorizontalAlignment="Left"
                         Padding="20,5"/>
