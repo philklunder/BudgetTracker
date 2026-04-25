@@ -10,6 +10,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using BudgetTracker.Models;
+using System.Collections.ObjectModel; 
 
 namespace BudgetTracker
 {
@@ -19,11 +20,12 @@ namespace BudgetTracker
     public partial class MainWindow : Window
     {
 
-        private List<Transaction> _transactions = new List<Transaction>(); 
+        private ObservableCollection<Transaction> _transactions = new ObservableCollection<Transaction>(); 
 
         public MainWindow()
         {
             InitializeComponent();
+            TransactionListView.ItemsSource = _transactions;
         }
 
         private void AddButton_Click(object sender, RoutedEventArgs e)
@@ -47,12 +49,27 @@ namespace BudgetTracker
             string? typeText = selectedItem?.Content?.ToString();
             TransactionType type = typeText == "Einnahme"
                 ? TransactionType.Income
-                : TransactionType.Expense; 
+                : TransactionType.Expense;
 
-            // 5. Test-Ausgabe - damit wir sehen, dass alles richtig ausgelesen wurde 
-            MessageBox.Show($"Erkannt: {amount} CHF - {category} ({type}) am {date:dd.MM.yyyy}");
+            // 5.Neues Transaction-Objekt erzeugen 
+            Transaction transaction = new Transaction
+            {
+                Amount = amount,
+                Category = category,
+                Description = description,
+                Date = date,
+                Type = type
+            };
 
+            // 6. Zur Liste hinzufügen 
+            _transactions.Add(transaction);
 
+            // 7. Eingabefelder zurücksetzten
+            AmountTextBox.Clear();
+            CategoryTextBox.Clear();
+            DescriptionTextBox.Clear();
+            DatePicker.SelectedDate = null;
+            TypeComboBox.SelectedIndex = -1; 
         }
     }
 }
