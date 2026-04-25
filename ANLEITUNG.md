@@ -72,69 +72,126 @@ Wenn ich sage, dass wir mit Schritt 1, 2, 3 oder 4 anfangen, möchte ich, dass d
 - Einfache Auswertung
 - Später optional MVVM
 
-## Fortschritt – was bisher gemacht wurde
+---
 
-### Schritt 1–3 (erledigt)
-- **Schritt 1 – Projektstruktur:** WPF-Projekt angelegt, Ordner `Models/` für Datenklassen erstellt.
-- **Schritt 2 – Klassen:** `Transaction` (Datenklasse mit `Amount`, `Category`, `Description`, `Date`, `Type`) und das Enum `TransactionType` (`Income`, `Expense`).
-- **Schritt 3 – UI:** `MainWindow.xaml` mit Eingabeformular (Betrag, Kategorie, Beschreibung, Datum, Typ), `ListView` für die Einträge und `TextBlock` für den Kontostand.
+# Schritt-für-Schritt-Anleitung
 
-### Schritt 4 – Logik zum Hinzufügen von Einträgen
+Diese Anleitung beschreibt rein schriftlich, **was** in jedem Schritt zu tun ist – ohne Code-Beispiele.
+Den Code und die Begründung *warum* findet man zu jedem Schritt in der `DOKUMENTATION.md`.
 
-Schritt 4 wurde in kleine Unter-Schritte zerlegt, damit man jede Idee für sich verstehen kann.
+---
 
-#### 4.1 – Liste für Transactions in MainWindow anlegen
-In `MainWindow.xaml.cs` wird ein privates Feld angelegt:
+## Schritt 1 – Projektstruktur planen
 
-```csharp
-private List<Transaction> _transactions = new List<Transaction>();
-```
+### 1.1 WPF-Projekt anlegen
+- In Visual Studio ein neues Projekt vom Typ **„WPF-Anwendung (.NET)"** erstellen
+- Projektnamen `BudgetTracker` wählen
+- Die Standard-Vorlage übernehmen (App.xaml, MainWindow.xaml, AssemblyInfo.cs werden automatisch erzeugt)
 
-**Warum?** Die App braucht einen Ort, an dem alle eingegebenen Einträge im Speicher gehalten werden, solange das Fenster offen ist. `List<Transaction>` ist die einfachste Wahl: dynamisch erweiterbar, leicht zu durchlaufen. Der Unterstrich (`_transactions`) ist eine verbreitete Konvention für private Felder.
+### 1.2 Ordnerstruktur vorbereiten
+- Im Projekt einen neuen Ordner `Models` anlegen
+- In diesen Ordner kommen später alle reinen Datenklassen
 
-#### 4.2 – Button-Click-Handler verdrahten
-Im XAML hat der Button `Click="AddButton_Click"`. Dadurch sucht WPF beim Klick nach einer Methode dieses Namens im Code-Behind:
+---
 
-```csharp
-private void AddButton_Click(object sender, RoutedEventArgs e)
-{
-    // Hier passiert gleich die eigentliche Logik
-}
-```
+## Schritt 2 – Benötigte Klassen festlegen
 
-**Warum?** WPF arbeitet event-basiert – auf Aktionen des Nutzers (Klick, Tastatur, …) reagieren wir mit Methoden, sogenannten *Event-Handlern*. `sender` ist das Element, das das Event ausgelöst hat (hier der Button), `e` enthält Zusatzinfos zum Event.
+### 2.1 Enum für den Transaktionstyp
+- Im Ordner `Models` eine neue Datei `TransactionType.cs` anlegen
+- Darin ein öffentliches Enum mit den beiden Werten `Income` und `Expense` definieren
 
-#### 4.3 – Eingaben aus dem Formular auslesen, parsen und validieren
-Im Click-Handler holen wir die Werte aus den UI-Elementen und wandeln sie in die richtigen Typen um.
+### 2.2 Transaction-Klasse
+- Im Ordner `Models` eine neue Datei `Transaction.cs` anlegen
+- Eine öffentliche Klasse `Transaction` mit folgenden Properties:
+  - `Amount` (Typ `decimal`)
+  - `Category` (Typ `string`, Default-Wert: leerer String)
+  - `Description` (Typ `string`, Default-Wert: leerer String)
+  - `Date` (Typ `DateTime`)
+  - `Type` (Typ `TransactionType`)
 
-**Was muss umgewandelt werden?**
+---
 
-| UI-Element | Liefert | Brauchen wir als |
-|---|---|---|
-| `AmountTextBox.Text` | `string` | `decimal` |
-| `CategoryTextBox.Text` | `string` | `string` |
-| `DescriptionTextBox.Text` | `string` | `string` |
-| `DatePicker.SelectedDate` | `DateTime?` (nullable) | `DateTime` |
-| `TypeComboBox.SelectedItem` | `object` (ein `ComboBoxItem`) | `TransactionType` (Enum) |
+## Schritt 3 – Einfaches UI in WPF entwerfen
 
-**Die kniffligen Stellen:**
+### 3.1 Fenster und Hauptlayout
+- In `MainWindow.xaml` Titel und Größe des Fensters festlegen (z. B. 800 × 500)
+- Das Wurzel-Grid in drei Zeilen aufteilen: oben `Auto`, Mitte `*`, unten `Auto`
+- Einen Außenrand (Margin) von 10 setzen
 
-1. **`decimal.TryParse`** – Der Nutzer könnte `"abc"` eingeben. `TryParse` versucht die Umwandlung, gibt `true`/`false` zurück und schreibt das Ergebnis über das `out`-Schlüsselwort in unsere Variable. Klappt es nicht, zeigen wir eine Fehlermeldung und brechen mit `return;` ab.
+### 3.2 Eingabeformular
+- In Zeile 0 eine `GroupBox` mit dem Header „Neuer Eintrag" einfügen
+- Innerhalb der GroupBox ein Grid mit zwei Spalten (fix 120 / flexibel `*`) und sechs Zeilen
+- Pro Zeile ein Label und ein Eingabefeld:
+  - Betrag → TextBox mit `x:Name="AmountTextBox"`
+  - Kategorie → TextBox mit `x:Name="CategoryTextBox"`
+  - Beschreibung → TextBox mit `x:Name="DescriptionTextBox"`
+  - Datum → DatePicker mit `x:Name="DatePicker"`
+  - Typ → ComboBox mit `x:Name="TypeComboBox"` und zwei Items: „Einnahme" und „Ausgabe"
+- In der letzten Zeile einen Button mit `x:Name="AddButton"` und Click-Event `AddButton_Click`
 
-2. **`?? DateTime.Today`** – Der `??`-Operator (Null-Coalescing) bedeutet: *„Wenn der Wert links `null` ist, nimm den rechten."* `DatePicker.SelectedDate` kann `null` sein, wenn der Nutzer kein Datum gewählt hat – dann nehmen wir einfach das heutige Datum.
+### 3.3 ListView für die Einträge
+- In Zeile 1 eine ListView mit `x:Name="TransactionListView"` einfügen
+- Innerhalb der ListView eine GridView mit den Spalten definieren:
+  - Datum (gebunden an `Date`, Format `dd.MM.yyyy`)
+  - Typ (gebunden an `Type`)
+  - Kategorie (gebunden an `Category`)
+  - Beschreibung (gebunden an `Description`)
+  - Betrag (gebunden an `Amount`, Format Währung)
 
-3. **ComboBox auslesen** – Aus `SelectedItem` kommt ein `ComboBoxItem`-Objekt zurück, kein String und schon gar kein Enum. Wir holen den angezeigten Text (`"Einnahme"` / `"Ausgabe"`) und mappen ihn mit dem ternären Operator (`? :`) auf `TransactionType.Income` bzw. `Expense`.
+### 3.4 Kontostand-Anzeige
+- In Zeile 2 einen `TextBlock` mit `x:Name="BalanceTextBlock"` einfügen
+- Initialer Text: „Kontostand: 0,00 €"
+- Schrift: Größe 16, fett, rechtsbündig
 
-Am Ende von 4.3 gibt es eine `MessageBox` als Test-Ausgabe – damit man sofort sieht, dass alle Werte korrekt erkannt werden, **bevor** wir sie in 4.4 wirklich zur Liste hinzufügen.
+---
 
-**Lerneffekt von 4.3:**
-- Sicheres Umwandeln von Strings in andere Typen (`TryParse` statt `Parse`)
-- Umgang mit nullable Typen (`?`, `??`)
-- Sichere Casts mit `as` und Null-sichere Aufrufe mit `?.`
-- Trennung von „Werte einsammeln" und „Werte verwenden" – das macht den Code übersichtlicher und macht Schritt 4.4 einfacher.
+## Schritt 4 – Logik zum Hinzufügen von Einträgen
 
-#### 4.4 – Transaction zur Liste hinzufügen + Felder leeren *(noch offen)*
-#### 4.5 – ListView mit der Liste verbinden *(noch offen)*
+### 4.1 Liste für Transactions anlegen
+- In `MainWindow.xaml.cs` ein privates Feld vom Typ `List<Transaction>` anlegen
+- Konvention: Private Feldnamen beginnen mit Unterstrich (`_transactions`)
+- Direkt mit einer leeren Liste initialisieren
+- Hinweis: dieser Typ wird in Schritt 4.5 zu `ObservableCollection<Transaction>` geändert
+
+### 4.2 Button-Click-Handler verdrahten
+- Eine private Methode `AddButton_Click(object sender, RoutedEventArgs e)` in `MainWindow.xaml.cs` anlegen
+- Diese Methode wird automatisch aufgerufen, weil im XAML `Click="AddButton_Click"` steht
+
+### 4.3 Eingaben auslesen, parsen, validieren
+Im Click-Handler nacheinander:
+
+1. Den Text aus `AmountTextBox` mit `decimal.TryParse` in eine Dezimalzahl umwandeln. Schlägt das fehl: Fehlermeldung anzeigen und mit `return` abbrechen.
+2. `Category` und `Description` direkt als String aus den jeweiligen TextBoxen auslesen.
+3. Das Datum aus `DatePicker.SelectedDate` lesen. Falls nichts ausgewählt ist: das heutige Datum als Fallback nehmen.
+4. Aus `TypeComboBox` das ausgewählte Item holen, daraus den Anzeigetext lesen und auf den entsprechenden `TransactionType`-Wert (`Income` / `Expense`) abbilden.
+5. (Optional zur Kontrolle:) Eine MessageBox mit den erkannten Werten zeigen – wird in 4.4 wieder entfernt.
+
+### 4.4 Transaction erzeugen, hinzufügen, Felder leeren
+1. Mit Object-Initializer-Syntax ein neues `Transaction`-Objekt erzeugen und mit den fünf ausgelesenen Werten befüllen.
+2. Das Objekt mit `Add` zur `_transactions`-Liste hinzufügen.
+3. Alle Eingabefelder zurücksetzen:
+   - TextBoxen mit `Clear()` leeren
+   - `DatePicker.SelectedDate` auf `null` setzen
+   - `TypeComboBox.SelectedIndex` auf `-1` setzen
+4. Die Test-MessageBox aus 4.3 entfernen.
+
+### 4.5 ListView mit der Liste verbinden
+1. Den `using`-Eintrag `System.Collections.ObjectModel` ergänzen.
+2. Den Typ des `_transactions`-Feldes von `List<Transaction>` auf `ObservableCollection<Transaction>` ändern.
+3. Im Konstruktor – nach `InitializeComponent()` – die `ItemsSource` der ListView auf `_transactions` setzen.
+4. Nicht mehr benötigte `using`-Direktiven aus dem Code-Behind entfernen.
+
+---
+
+## Schritt 5 – Liste der Einträge anzeigen
+Wird durch die GridView-Spalten aus 3.3 und die `ItemsSource`-Verknüpfung aus 4.5 bereits abgedeckt. Es ist hier nichts mehr zu tun.
+
+---
+
+## Schritt 6 – Kontostand berechnen *(noch offen)*
+Wird im nächsten Arbeitsschritt umgesetzt.
+
+---
 
 ## Status
 
