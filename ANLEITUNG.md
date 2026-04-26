@@ -184,12 +184,33 @@ Im Click-Handler nacheinander:
 ---
 
 ## Schritt 5 – Liste der Einträge anzeigen
-Wird durch die GridView-Spalten aus 3.3 und die `ItemsSource`-Verknüpfung aus 4.5 bereits abgedeckt. Es ist hier nichts mehr zu tun.
+In diesem Schritt ist **kein neuer Code** mehr nötig. Die Funktionalität wurde bereits in zwei früheren Schritten umgesetzt:
+
+- **Schritt 3.3** legt mit den `GridViewColumn`s fest, **welche Spalten** die ListView hat und an welche Property von `Transaction` jede Spalte gebunden ist.
+- **Schritt 4.5** verbindet mit `ItemsSource = _transactions` die ListView mit unserer Datenquelle und sorgt mit `ObservableCollection<T>` dafür, dass neue Einträge **automatisch** in der Tabelle erscheinen.
+
+Damit ist die Anzeige der Einträge vollständig fertig. Eine ausführlichere Begründung steht in `DOKUMENTATION.md` unter Schritt 5.
 
 ---
 
-## Schritt 6 – Kontostand berechnen *(noch offen)*
-Wird im nächsten Arbeitsschritt umgesetzt.
+## Schritt 6 – Kontostand berechnen
+
+### 6.1 Berechnungsmethode `UpdateBalance` anlegen
+- In `MainWindow.xaml.cs` eine neue private Methode `UpdateBalance()` ohne Rückgabewert anlegen
+- Eine lokale Variable `balance` vom Typ `decimal` mit Startwert `0` deklarieren
+- Mit einer `foreach`-Schleife über alle Einträge in `_transactions` iterieren
+- Pro Eintrag prüfen, ob der `Type` gleich `TransactionType.Income` ist:
+  - wenn ja: den Betrag zur `balance` addieren
+  - wenn nein (also Ausgabe): den Betrag von der `balance` abziehen
+- Nach der Schleife `BalanceTextBlock.Text` mit dem berechneten Wert setzen, formatiert als Währung
+
+### 6.2 `UpdateBalance` an den richtigen Stellen aufrufen
+- **Im Konstruktor:** nach der Zeile `TransactionListView.ItemsSource = _transactions;` einmal `UpdateBalance()` aufrufen, damit beim Programmstart der Kontostand dynamisch aus der (leeren) Liste berechnet wird
+- **Am Ende von `AddButton_Click`:** nach dem Zurücksetzen der Eingabefelder ebenfalls `UpdateBalance()` aufrufen, damit der Kontostand nach jedem neuen Eintrag aktualisiert wird
+
+### 6.3 Einheitliche Währungsformatierung im UI
+- In `MainWindow.xaml` am `<Window …>`-Tag das Attribut `xml:lang="de-CH"` ergänzen
+- Damit verwenden alle XAML-Bindings (z. B. die Betragsspalte mit `StringFormat=C`) dieselbe Kultur wie der C#-Code und zeigen einheitlich `CHF` statt `$`
 
 ---
 

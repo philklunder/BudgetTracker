@@ -330,9 +330,104 @@ Die `DisplayMemberBinding`-Ausdrücke aus 3.3 ziehen sich für jedes Element der
 ---
 
 ## Schritt 5 – Liste der Einträge anzeigen
-Bereits durch 4.5 vollständig abgedeckt. Die GridView-Spalten kennen die Property-Namen, die `ItemsSource`-Zuweisung verbindet die ListView mit der Liste, `ObservableCollection` sorgt für automatische Aktualisierung.
+
+In diesem Schritt wird **kein neuer Code** geschrieben – die Funktionalität wurde bereits in Schritt 4 vollständig erledigt. Trotzdem lohnt es sich, hier nochmal zu sammeln, *was* genau das Anzeigen ausmacht und *wo* es im Projekt zusammenkommt.
+
+**Das Anzeigen einer Liste in WPF besteht aus drei Teilen:**
+
+1. **Spalten definieren** – „Welche Felder sollen in welcher Reihenfolge zu sehen sein und wie heißen die Überschriften?"
+   → erledigt in **Schritt 3.3** über die `GridViewColumn`s mit `DisplayMemberBinding="{Binding Date}"`, `{Binding Category}` usw.
+
+2. **Datenquelle anhängen** – „Wo holt sich die ListView ihre Einträge her?"
+   → erledigt in **Schritt 4.5** mit `TransactionListView.ItemsSource = _transactions;`
+
+3. **Automatische Aktualisierung** – „Wie merkt die ListView, dass ein neuer Eintrag dazukam?"
+   → erledigt ebenfalls in **Schritt 4.5**, indem das Feld nicht als `List<T>` sondern als `ObservableCollection<T>` typisiert wurde. Diese Klasse löst bei jeder Änderung ein Event aus, auf das die ListView hört und sich neu zeichnet.
+
+**Warum tauchen die drei Teile nicht in einem einzigen „Schritt 5"-Block auf?**
+Die UI-Definition (Spalten) gehört logisch zum UI-Aufbau (Schritt 3) – sonst wäre die XAML-Datei zerfetzt. Die Datenanbindung gehört zur Hinzufügen-Logik (Schritt 4), weil die `ObservableCollection` nur dort Sinn ergibt. Schritt 5 ist also keine eigene Aufgabe, sondern das **Zusammenwirken** der vorhergehenden Schritte – und genau das wollten wir mit WPF erreichen: möglichst viel deklarativ im XAML, statt manuell Items per Code anzuhängen.
 
 ---
 
 ## Schritt 6 – Kontostand berechnen
-*(noch offen – wird im nächsten Arbeitsschritt umgesetzt)*
+
+### 6.1 Berechnungsmethode `UpdateBalance`
+
+```csharp
+private void UpdateBalance()
+{
+    decimal balance = 0;
+
+    foreach (Transaction transaction in _transactions)
+    {
+        if (transaction.Type == TransactionType.Income)
+        {
+            balance += transaction.Amount;
+        }
+        else
+        {
+            balance -= transaction.Amount;
+        }
+    }
+
+    BalanceTextBlock.Text = $"Kontostand: {balance:C}";
+}
+```
+
+**Warum eine eigene Methode statt den Code direkt einzubauen?**
+- *Wiederverwendbarkeit:* Wir brauchen die Berechnung sowohl beim Programmstart als auch nach jedem neuen Eintrag. Wäre die Logik direkt in `AddButton_Click`, hätten wir entweder Duplikate oder müssten den Konstruktor künstlich den Click-Handler aufrufen lassen.
+- *Saubere Trennung von Aufgaben:* `AddButton_Click` macht „ein Eintrag hinzufügen", `UpdateBalance` macht „Kontostand neu berechnen". Eine Methode = eine klar umrissene Aufgabe.
+
+**`balance += transaction.Amount;`** ist die Kurzform für `balance = balance + transaction.Amount;`. Genauso `-=` für die Subtraktion. Diese Compound-Operatoren sind in C# Standard und sehr verbreitet.
+
+**Warum `foreach` statt `for`?** Wir brauchen keinen Index – wir wollen einfach jeden Eintrag der Reihe nach durchgehen. `foreach` zeigt diese Absicht klar und ist weniger fehleranfällig.
+
+**`$"Kontostand: {balance:C}"`** – ein interpolierter String:
+- Das `$` davor erlaubt es, mitten im String C#-Ausdrücke in `{ }` zu schreiben.
+- Der Doppelpunkt `:C` ist eine Format-Anweisung für *Currency*. Welche Währung am Ende erscheint, hängt von der Sprache des Systems ab (in der Schweiz `CHF`, in Deutschland `€`, in den USA `$`).
+
+**Alternative mit LINQ (zur Information, nicht im Code verwendet):**
+```csharp
+decimal balance = _transactions.Sum(t => t.Type == TransactionType.Income ? t.Amount : -t.Amount);
+```
+Eine einzige Zeile statt einer ganzen Schleife. LINQ ist sehr mächtig, aber für den Anfang ist die `foreach`-Variante leichter zu lesen und im Debugger Schritt für Schritt nachvollziehbar.
+
+### 6.2 `UpdateBalance` aufrufen
+
+**Im Konstruktor:**
+```csharp
+public MainWindow()
+{
+    InitializeComponent();
+    TransactionListView.ItemsSource = _transactions;
+    UpdateBalance();
+}
+```
+Damit beim Programmstart sofort der berechnete Wert (am Anfang `0,00 CHF`) erscheint – und nicht ein hartkodierter Text aus dem XAML.
+
+**Am Ende von `AddButton_Click`:**
+```csharp
+// ... vorheriger Code (Felder zurücksetzen) ...
+UpdateBalance();
+```
+So wird nach jedem neuen Eintrag der Kontostand neu berechnet und im UI angezeigt.
+
+**Warum reicht das?** Solange wir nur über `_transactions.Add(...)` Einträge hinzufügen und sonst nichts an der Liste ändern, kennen wir alle Stellen, an denen sich der Kontostand ändern kann. Sobald wir später „Löschen" oder „Bearbeiten" einbauen, müssen wir `UpdateBalance()` auch dort aufrufen.
+
+### 6.3 Einheitliche Währungsformatierung im XAML
+
+**Was hinzuzufügen ist** – am `<Window …>`-Tag in `MainWindow.xaml`:
+```xml
+<Window x:Class="BudgetTracker.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xml:lang="de-CH"
+        Title="Budget Tracker" Height="500" Width="800">
+```
+
+**Warum braucht es das überhaupt?**
+Eine bekannte WPF-Eigenheit: `{balance:C}` im **C#-Code** verwendet automatisch die Sprache des Betriebssystems. `StringFormat=C` in einem **XAML-Binding** dagegen verwendet standardmäßig **en-US** – also Dollar. Ohne Korrektur sähe man:
+- im `BalanceTextBlock` (Code): `Kontostand: CHF 100.00`
+- in der ListView-Spalte (XAML): `$100.00`
+
+Mit `xml:lang="de-CH"` am `Window` erbt jedes Binding innerhalb dieses Fensters die schweizerdeutsche Kultur. Damit sind UI und Code-Behind konsistent. Diese Lösung wirkt für **alle** zukünftigen Bindings – wir müssen das nicht für jede Spalte einzeln nachpflegen.

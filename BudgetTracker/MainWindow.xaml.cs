@@ -26,6 +26,7 @@ namespace BudgetTracker
         {
             InitializeComponent();
             TransactionListView.ItemsSource = _transactions;
+            UpdateBalance();
         }
 
         private void AddButton_Click(object sender, RoutedEventArgs e)
@@ -69,7 +70,28 @@ namespace BudgetTracker
             CategoryTextBox.Clear();
             DescriptionTextBox.Clear();
             DatePicker.SelectedDate = null;
-            TypeComboBox.SelectedIndex = -1; 
+            TypeComboBox.SelectedIndex = -1;
+            UpdateBalance();
+        }
+
+
+        private void UpdateBalance()
+        {
+            decimal balance = 0;
+
+            foreach (Transaction transaction in _transactions)
+            {
+                if (transaction.Type == TransactionType.Income)
+                {
+                    balance += transaction.Amount;
+                }
+                else
+                {
+                    balance -= transaction.Amount;
+                }
+            }
+
+            BalanceTextBlock.Text = $"Kontostand: {balance:C}" ;
         }
     }
 }
