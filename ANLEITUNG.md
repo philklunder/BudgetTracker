@@ -72,6 +72,25 @@ Wenn ich sage, dass wir mit Schritt 1, 2, 3 oder 4 anfangen, möchte ich, dass d
 - Einfache Auswertung
 - Später optional MVVM
 
+## Versionierung
+
+Jede in sich abgeschlossene Version wird auf einem eigenen Branch als Momentaufnahme festgehalten.
+Auf `main` läuft immer die aktuellste Entwicklung – also die jeweils neueste Version inklusive der Arbeit an der nächsten.
+
+| Version | Branch | Inhalt |
+|---------|--------|--------|
+| **v1**  | `v1`   | Erste lauffähige Version: Einnahmen/Ausgaben hinzufügen, Liste anzeigen, Kontostand berechnen |
+| v2      | *(geplant)* | Einträge löschen und bearbeiten |
+| v3      | *(geplant)* | Persistenz: Daten in JSON speichern und laden |
+| v4      | *(geplant)* | Filtern nach Kategorie + Monatsübersicht |
+| v5      | *(geplant)* | Refactoring nach MVVM-Pattern |
+
+Den Stand einer bestimmten Version lokal anschauen:
+```bash
+git checkout v1     # in den v1-Stand wechseln
+git checkout main   # zurück zur aktuellen Entwicklung
+```
+
 ---
 
 # Schritt-für-Schritt-Anleitung
