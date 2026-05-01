@@ -76,7 +76,34 @@ namespace BudgetTracker
 
         private void DeleteButton_Click(object sender, RoutedEventArgs e)
         {
-            // Logik folgt in Schritt 7.2 
+            //1. Ausgewählte Transaktion aus der ListView holen
+            Transaction? selected = TransactionListView.SelectedItem as Transaction; 
+
+            // 2. Wenn nichts ausgewählt ist: Hinweis anzeigen und abbrechen 
+            if (selected is null)
+            {
+                MessageBox.Show("Bitte zuerst einen Eintrag in der Liste auswählen.");
+                return; 
+            }
+
+            // 3. Bestätigungsdialog anzeigen (JA/NEIN)
+            MessageBoxResult result = MessageBox.Show(
+                $"Eintrag wirklich löschen?\n\n{selected.Date:dd.MM.yyyy} - {selected.Category}: {selected.Amount:C}",
+                "Löschen bestätigen",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            // 4. Wenn der Nutzer NICHT auf "JA" geklickt hat: abbrechen 
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            // 5. Eintrag aus der Liste entfernen
+            _transactions.Remove(selected);
+
+            // 6. Kontostand aktualisieren
+            UpdateBalance();
         }
 
 

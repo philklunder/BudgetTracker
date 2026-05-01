@@ -504,3 +504,99 @@ Sobald im XAML `Click="DeleteButton_Click"` steht, sucht WPF beim Kompilieren na
 
 **Wofür ist `Grid.Row` an einem Element?**
 `Grid.Row` ist eine sogenannte **Attached Property**: Sie gehört nicht zum Element selbst (Button, TextBlock …), sondern wird vom **Eltern-Grid** ausgewertet. Damit weiß das Grid, in welche Zeile das Kind gehört. Standard ist `Grid.Row="0"` – deshalb mussten wir die `<Grid.RowDefinitions>` für das Eingabeformular nicht extra mit `Grid.Row="0"` markieren, alle weiteren Elemente brauchen den Hinweis aber explizit.
+
+### 7.2 Lösch-Logik im Click-Handler
+
+```csharp
+private void DeleteButton_Click(object sender, RoutedEventArgs e)
+{
+    // 1. Ausgewählten Eintrag aus der ListView holen
+    Transaction? selected = TransactionListView.SelectedItem as Transaction;
+
+    // 2. Wenn nichts ausgewählt ist: Hinweis anzeigen und abbrechen
+    if (selected is null)
+    {
+        MessageBox.Show("Bitte zuerst einen Eintrag in der Liste auswählen.");
+        return;
+    }
+
+    // 3. Eintrag aus der Liste entfernen
+    _transactions.Remove(selected);
+
+    // 4. Kontostand neu berechnen
+    UpdateBalance();
+}
+```
+
+**Warum hat `SelectedItem` den Typ `object?` und nicht `Transaction`?**
+Eine WPF-`ListView` ist generisch und kann jeden beliebigen Typ anzeigen. Sie hat zur Compile-Zeit keine Ahnung, dass *unsere* `ItemsSource` eine `ObservableCollection<Transaction>` ist. Deshalb ist die Rückgabe `object?` – wir müssen selbst zurück in den richtigen Typ casten.
+
+**Cast-Möglichkeiten in C# – ein Überblick:**
+
+| Schreibweise | Verhalten bei falschem Typ | Wann nehmen? |
+|--------------|----------------------------|--------------|
+| `(Transaction)x` | wirft `InvalidCastException` | Wenn man absolut sicher ist, dass der Typ stimmt |
+| `x as Transaction` | gibt `null` zurück | Wenn Typ-Mismatch oder `null`-Wert möglich ist |
+| `x is Transaction t` | `bool` + Variable; weist nur bei Erfolg zu | Wenn man Cast und Prüfung in einem Schritt will |
+
+Wir nehmen `as`, weil `SelectedItem` auch dann `null` ist, wenn **gar nichts** ausgewählt wurde – und mit dem anschließenden Null-Check decken wir beide Fälle (kein Item ausgewählt **oder** falscher Typ) gemeinsam ab.
+
+**Warum `Transaction?` mit Fragezeichen?**
+Das `?` signalisiert dem Compiler: *„diese Variable darf `null` sein"* (nullable reference type). Da `as` im Fehlerfall `null` zurückgibt, **muss** der Variablen-Typ das ausdrücklich erlauben – sonst bekommen wir eine Compiler-Warnung.
+
+**Warum funktioniert `_transactions.Remove(selected)` einfach so?**
+`Remove(item)` entfernt das **erste Element**, das gleich `item` ist. Bei Referenztypen wie unserer `Transaction`-Klasse heißt „gleich": dasselbe Objekt im Speicher (Referenzgleichheit). Da `selected` exakt das Objekt aus der Liste ist – die ListView reicht uns nur den Verweis weiter, sie kopiert nichts –, wird genau dieses entfernt. Property-Werte sind dabei egal: zwei `Transaction`-Objekte mit identischem Inhalt würden als verschieden gelten, weil sie unterschiedliche Speicherplätze haben.
+
+**Warum aktualisiert sich die ListView automatisch nach `Remove`?**
+Weil `_transactions` eine `ObservableCollection<T>` ist (siehe Schritt 4.5). Nach jedem `Remove` löst sie ein Change-Event aus, auf das die ListView hört und sich neu zeichnet. Wir müssen das UI nicht manuell aktualisieren.
+
+**Warum dann doch `UpdateBalance()` von Hand?**
+`ObservableCollection` informiert nur Steuerelemente, die **direkt** auf sie gebunden sind – also unsere ListView. Der `BalanceTextBlock` ist nur ein gewöhnlicher TextBlock, der über `BalanceTextBlock.Text = ...` befüllt wird. Den müssen wir selbst neu berechnen lassen, genau wie nach dem Hinzufügen.
+
+### 7.3 Bestätigungs-Abfrage vor dem Löschen
+
+**Erweiterung in `DeleteButton_Click` zwischen Schritt 2 (Null-Check) und Schritt 3 (Entfernen):**
+
+```csharp
+// 3. Bestätigungs-Abfrage (Ja/Nein)
+MessageBoxResult result = MessageBox.Show(
+    $"Eintrag wirklich löschen?\n\n{selected.Date:dd.MM.yyyy} – {selected.Category}: {selected.Amount:C}",
+    "Löschen bestätigen",
+    MessageBoxButton.YesNo,
+    MessageBoxImage.Question);
+
+// 4. Wenn der Nutzer NICHT auf "Ja" geklickt hat: abbrechen
+if (result != MessageBoxResult.Yes)
+{
+    return;
+}
+```
+
+**Die `MessageBox.Show`-Familie**
+
+Bisher haben wir nur die einfache Form `MessageBox.Show("Text")` benutzt – ein OK-Button, kein Rückgabewert. Es gibt aber Überladungen mit zusätzlichen Parametern:
+
+| Parameter | Typ | Bedeutung |
+|-----------|-----|-----------|
+| `messageBoxText` | `string` | Inhalt der Nachricht |
+| `caption` | `string` | Titelzeile des Fensters |
+| `button` | `MessageBoxButton` | Welche Buttons? (`OK`, `OKCancel`, `YesNo`, `YesNoCancel`) |
+| `icon` | `MessageBoxImage` | Welches Symbol? (`None`, `Information`, `Warning`, `Question`, `Error`) |
+
+Der **Rückgabewert** vom Typ `MessageBoxResult` zeigt, welchen Button der Nutzer geklickt hat (`Yes`, `No`, `OK`, `Cancel`, `None`).
+
+**Warum eine Vorschau im Dialogtext?**
+„Wirklich löschen?" allein ist zu abstrakt. Mit Datum, Kategorie und Betrag (`{selected.Date:dd.MM.yyyy} – {selected.Category}: {selected.Amount:C}`) sieht der Nutzer in der Bestätigung **konkret**, was gleich verschwindet. Die Format-Spezifizierer (`:dd.MM.yyyy` für das Datum, `:C` für den Betrag) kennen wir aus der ListView (`StringFormat`) und Schritt 6.
+
+**Warum `\n\n` im Text?**
+`\n` ist der Escape-Code für einen Zeilenumbruch. Zwei davon erzeugen eine Leerzeile zwischen Frage und Eintragsdetails – sieht im Dialog deutlich besser aus.
+
+**Warum `if (result != MessageBoxResult.Yes)` und nicht `if (result == MessageBoxResult.No)`?**
+Bei `MessageBoxButton.YesNo` gibt es zwar nur diese zwei Optionen – der Nutzer kann den Dialog aber auch über das **X (Schließen)** oder mit **ESC** schließen. Ergebnis dann: `MessageBoxResult.None`. Mit `!= Yes` decken wir alle „nicht-bestätigt"-Fälle ab. Das ist ein typisches **Default-Deny-Muster**: bei jedem Zweifel abbrechen, lieber einmal zu wenig als einmal zu viel löschen.
+
+**Warum zwei verschiedene Dialog-Typen im selben Click-Handler?**
+Sie haben **unterschiedliche Funktionen**:
+- Der erste Dialog (kein Eintrag ausgewählt) ist ein **Hinweis** – nur OK-Button reicht.
+- Der zweite (Bestätigung) ist eine **Entscheidung** – `YesNo`-Buttons + `Question`-Icon.
+
+Konsistenz nach Funktion, nicht nach Form: das richtige Icon hilft dem Nutzer, sofort einzuordnen, was von ihm erwartet wird.

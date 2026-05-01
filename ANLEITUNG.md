@@ -244,6 +244,22 @@ Ab hier beginnt die Arbeit an **v2**. Ziel von Schritt 7 ist es, einen ausgewäh
 - Den bestehenden `BalanceTextBlock` von `Grid.Row="2"` auf `Grid.Row="3"` ändern, damit er unter den Aktions-Buttons bleibt
 - In `MainWindow.xaml.cs` einen vorerst leeren Click-Handler `DeleteButton_Click(object sender, RoutedEventArgs e)` anlegen, damit das Projekt kompiliert. Die eigentliche Lösch-Logik kommt in 7.2.
 
+### 7.2 Lösch-Logik im Click-Handler
+Im Click-Handler `DeleteButton_Click` nacheinander:
+
+1. Mit `TransactionListView.SelectedItem as Transaction` den ausgewählten Eintrag holen und in einer `Transaction?`-Variable speichern.
+2. Wenn die Variable `null` ist (also nichts ausgewählt): eine `MessageBox` mit Hinweis anzeigen und mit `return` abbrechen.
+3. Den Eintrag mit `_transactions.Remove(selected)` aus der Liste entfernen.
+4. `UpdateBalance()` aufrufen, damit der Kontostand neu berechnet wird.
+
+### 7.3 Bestätigungs-Abfrage vor dem Löschen
+- Zwischen Schritt 2 (Null-Check) und Schritt 3 (Entfernen) aus 7.2 eine zusätzliche Sicherheitsabfrage einfügen
+- Mit `MessageBox.Show(...)` einen Dialog mit zwei Buttons (`MessageBoxButton.YesNo`) und Frage-Icon (`MessageBoxImage.Question`) anzeigen
+- Im Dialogtext die Eckdaten des Eintrags (Datum, Kategorie, Betrag) anzeigen, damit der Nutzer sieht, was er löscht
+- Den Rückgabewert in einer `MessageBoxResult`-Variable speichern
+- Wenn das Ergebnis **nicht** `MessageBoxResult.Yes` ist (also „Nein", oder Dialog mit X geschlossen): mit `return` abbrechen
+- Erst danach `_transactions.Remove(...)` und `UpdateBalance()` ausführen
+
 ---
 
 ## Status
