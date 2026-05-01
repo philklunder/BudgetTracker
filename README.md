@@ -32,8 +32,8 @@ The `main` branch always contains the latest version (including work in progress
 
 | Version | Branch | Inhalt |
 |---------|--------|--------|
-| **v1**  | [`v1`](../../tree/v1) | Erste lauffähige Version: Einnahmen/Ausgaben hinzufügen, Liste anzeigen, Kontostand berechnen |
-| v2      | *(geplant)* | Einträge löschen und bearbeiten |
+| v1      | [`v1`](../../tree/v1) | Erste lauffähige Version: Einnahmen/Ausgaben hinzufügen, Liste anzeigen, Kontostand berechnen |
+| **v2**  | [`v2`](../../tree/v2) | Einträge löschen (mit Bestätigung) und bearbeiten (mit Speichern / Abbrechen) |
 | v3      | *(geplant)* | Persistenz: Daten in JSON speichern und laden |
 | v4      | *(geplant)* | Filtern nach Kategorie + Monatsübersicht |
 | v5      | *(geplant)* | Refactoring nach MVVM-Pattern |
