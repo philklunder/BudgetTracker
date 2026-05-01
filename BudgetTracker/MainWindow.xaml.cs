@@ -74,6 +74,11 @@ namespace BudgetTracker
             UpdateBalance();
         }
 
+        private void DeleteButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Logik folgt in Schritt 7.2 
+        }
+
 
         private void UpdateBalance()
         {

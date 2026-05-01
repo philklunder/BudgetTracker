@@ -233,6 +233,19 @@ Damit ist die Anzeige der Einträge vollständig fertig. Eine ausführlichere Be
 
 ---
 
+## Schritt 7 – Einträge löschen
+
+Ab hier beginnt die Arbeit an **v2**. Ziel von Schritt 7 ist es, einen ausgewählten Eintrag aus der Liste entfernen zu können.
+
+### 7.1 Löschen-Button im UI hinzufügen
+- In `MainWindow.xaml` das Wurzel-Grid um eine vierte Zeile erweitern (`<RowDefinition Height="Auto"/>` zusätzlich)
+- Zwischen ListView und Kontostand in Zeile 2 ein neues `StackPanel` mit `Orientation="Horizontal"` einfügen
+- In das StackPanel einen `Button` mit `x:Name="DeleteButton"`, Beschriftung „Löschen" und `Click="DeleteButton_Click"` platzieren
+- Den bestehenden `BalanceTextBlock` von `Grid.Row="2"` auf `Grid.Row="3"` ändern, damit er unter den Aktions-Buttons bleibt
+- In `MainWindow.xaml.cs` einen vorerst leeren Click-Handler `DeleteButton_Click(object sender, RoutedEventArgs e)` anlegen, damit das Projekt kompiliert. Die eigentliche Lösch-Logik kommt in 7.2.
+
+---
+
 ## Status
 
 Work in Progress – wird laufend erweitert, während ich neue Konzepte lerne.

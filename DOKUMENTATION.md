@@ -431,3 +431,76 @@ Eine bekannte WPF-Eigenheit: `{balance:C}` im **C#-Code** verwendet automatisch 
 - in der ListView-Spalte (XAML): `$100.00`
 
 Mit `xml:lang="de-CH"` am `Window` erbt jedes Binding innerhalb dieses Fensters die schweizerdeutsche Kultur. Damit sind UI und Code-Behind konsistent. Diese Lösung wirkt für **alle** zukünftigen Bindings – wir müssen das nicht für jede Spalte einzeln nachpflegen.
+
+---
+
+## Schritt 7 – Einträge löschen
+
+Mit Schritt 7 startet die Arbeit an **v2**. Wir bauen Stück für Stück die Funktion „Eintrag aus der Liste entfernen" auf. 7.1 legt zunächst nur das UI-Skelett an (Button + leerer Click-Handler), die eigentliche Lösch-Logik folgt in 7.2.
+
+### 7.1 Löschen-Button im UI hinzufügen
+
+**`MainWindow.xaml` – vierte Zeile im Grid ergänzen:**
+
+```xml
+<Grid.RowDefinitions>
+    <RowDefinition Height="Auto"/>
+    <RowDefinition Height="*"/>
+    <RowDefinition Height="Auto"/>
+    <RowDefinition Height="Auto"/>
+</Grid.RowDefinitions>
+```
+
+**`MainWindow.xaml` – neue Aktionsleiste zwischen ListView und Kontostand:**
+
+```xml
+<StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+    <Button x:Name="DeleteButton"
+            Content="Löschen"
+            Click="DeleteButton_Click"
+            Padding="20,5"
+            Margin="0,0,10,0"/>
+</StackPanel>
+```
+
+**`MainWindow.xaml` – Kontostand rückt eine Zeile nach unten:**
+
+```xml
+<TextBlock Grid.Row="3"
+           x:Name="BalanceTextBlock"
+           Text="Kontostand: 0,00 €"
+           FontSize="16"
+           FontWeight="Bold"
+           HorizontalAlignment="Right"
+           Margin="0,10,0,0"/>
+```
+
+**`MainWindow.xaml.cs` – leerer Click-Handler-Stub:**
+
+```csharp
+private void DeleteButton_Click(object sender, RoutedEventArgs e)
+{
+    // Logik folgt in Schritt 7.2
+}
+```
+
+**Warum eine eigene Zeile für die Aktions-Buttons?**
+Bisher lag der Kontostand direkt unter der ListView. Wir trennen jetzt sauber **Aktionen** (links, Buttons) von **Anzeige** (rechts, Kontostand) – jede mit eigener Grid-Zeile. So überlagert sich später nichts, auch wenn ein zweiter Button („Bearbeiten") dazukommt.
+
+**Warum schon ein `StackPanel` für nur einen Button?**
+Ein `StackPanel` reiht seine Kinder einfach hintereinander auf – horizontal oder vertikal. In 8.1 fügen wir den „Bearbeiten"-Button daneben ein, ohne irgendetwas am Layout-Container ändern zu müssen. Alternative wäre ein neues Grid mit Spalten – aber das ist Overkill für eine simple Reihe.
+
+**Warum `Padding` und `Margin` gleichzeitig am Button?**
+- `Padding="20,5"` – Abstand **innen**, also zwischen Buttonrand und Beschriftung. Macht den Button optisch nicht zu eng.
+- `Margin="0,0,10,0"` – Abstand **außen**, hier 10 px nach rechts. Damit hat der nächste Button (kommt in 8.1) eine kleine Lücke und klebt nicht direkt am Lösch-Button.
+
+| Format | Reihenfolge |
+|--------|-------------|
+| `"x,y"` | links/rechts, oben/unten |
+| `"links,oben,rechts,unten"` | alle vier Seiten einzeln |
+
+**Warum brauchen wir den leeren Click-Handler-Stub?**
+Sobald im XAML `Click="DeleteButton_Click"` steht, sucht WPF beim Kompilieren nach einer Methode genau dieses Namens im Code-Behind. Fehlt die Methode, scheitert der Build mit einem Compiler-Fehler. Mit dem leeren Stub kompiliert das Projekt, der Button erscheint im Fenster – beim Klick passiert nur (noch) nichts. Genau das gleiche Vorgehen hatten wir in Schritt 4.2 mit dem `AddButton_Click`.
+
+**Wofür ist `Grid.Row` an einem Element?**
+`Grid.Row` ist eine sogenannte **Attached Property**: Sie gehört nicht zum Element selbst (Button, TextBlock …), sondern wird vom **Eltern-Grid** ausgewertet. Damit weiß das Grid, in welche Zeile das Kind gehört. Standard ist `Grid.Row="0"` – deshalb mussten wir die `<Grid.RowDefinitions>` für das Eingabeformular nicht extra mit `Grid.Row="0"` markieren, alle weiteren Elemente brauchen den Hinweis aber explizit.
