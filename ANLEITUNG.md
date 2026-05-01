@@ -262,6 +262,58 @@ Im Click-Handler `DeleteButton_Click` nacheinander:
 
 ---
 
+## Schritt 8 – Einträge bearbeiten
+
+Mit Schritt 8 wird v2 vervollständigt: ein ausgewählter Eintrag soll sich ins Formular laden, ändern und entweder speichern oder verwerfen lassen.
+
+### 8.1 Bearbeiten-Button im UI hinzufügen
+- In `MainWindow.xaml` das StackPanel der Aktionsleiste (Grid.Row="2") um einen zweiten `Button` erweitern, **vor** dem `DeleteButton`
+- Eigenschaften: `x:Name="EditButton"`, Beschriftung „Bearbeiten", `Click="EditButton_Click"`
+- Reihenfolge in der Aktionsleiste somit: Bearbeiten | Löschen (weniger destruktive Aktion zuerst)
+- In `MainWindow.xaml.cs` einen leeren Click-Handler `EditButton_Click(object sender, RoutedEventArgs e)` anlegen, damit das Projekt kompiliert
+
+### 8.2 Werte des ausgewählten Eintrags ins Formular laden
+Im Click-Handler `EditButton_Click` nacheinander:
+
+1. Mit `TransactionListView.SelectedItem as Transaction` den ausgewählten Eintrag holen und in einer `Transaction?`-Variable speichern
+2. Wenn die Variable `null` ist (nichts ausgewählt): MessageBox anzeigen und mit `return` abbrechen
+3. Die fünf Property-Werte ins Formular schreiben:
+   - `AmountTextBox.Text = selected.Amount.ToString();`
+   - `CategoryTextBox.Text = selected.Category;`
+   - `DescriptionTextBox.Text = selected.Description;`
+   - `DatePicker.SelectedDate = selected.Date;`
+   - `TypeComboBox.SelectedIndex = selected.Type == TransactionType.Income ? 0 : 1;`
+
+> Hinweis: Nach 8.2 ist die Bearbeiten-Funktion bewusst noch unvollständig. Klick auf „Hinzufügen" mit geladenen Werten würde einen **zweiten** Eintrag anlegen. Das wird in 8.3 behoben.
+
+### 8.3 Speichern-Button + Bearbeitungs-Modus
+- In `MainWindow.xaml`: den bestehenden `AddButton` in ein StackPanel (Orientation="Horizontal") einbetten und daneben einen zweiten Button setzen mit `x:Name="SaveButton"`, Beschriftung „Speichern", `Click="SaveButton_Click"`, `IsEnabled="False"`
+- In `MainWindow.xaml.cs` ein neues privates Feld einführen: `private Transaction? _editingTransaction = null;`
+  - `null` = Hinzufügen-Modus (Standard)
+  - Konkretes `Transaction`-Objekt = dieser Eintrag wird gerade bearbeitet
+- `EditButton_Click` aus 8.2 ergänzen: am Ende `_editingTransaction = selected;` und `SaveButton.IsEnabled = true;`
+- `AddButton_Click` ergänzen: am Ende `_editingTransaction = null;` und `SaveButton.IsEnabled = false;` (sauberer Reset, falls aus dem Bearbeitungs-Modus heraus auf Hinzufügen geklickt wurde)
+- Neuen Handler `SaveButton_Click` anlegen:
+  1. Sicherheits-Check `if (_editingTransaction is null) return;`
+  2. Eingaben auslesen + validieren (gleicher Code wie in `AddButton_Click`)
+  3. Werte ins **bestehende** `_editingTransaction`-Objekt schreiben statt ein neues anzulegen
+  4. `TransactionListView.Items.Refresh()` aufrufen, damit die ListView die geänderten Werte anzeigt
+  5. Eingabefelder zurücksetzen
+  6. `_editingTransaction = null;` und `SaveButton.IsEnabled = false;`
+  7. `UpdateBalance()` aufrufen
+
+### 8.4 Abbrechen-Button
+- In `MainWindow.xaml` neben den `SaveButton` einen dritten Button setzen mit `x:Name="CancelButton"`, Beschriftung „Abbrechen", `Click="CancelButton_Click"`, `IsEnabled="False"`
+- Am `SaveButton` ein `Margin="0,0,10,0"` ergänzen, damit zwischen Speichern- und Abbrechen-Button eine Lücke entsteht
+- `EditButton_Click` ergänzen: zusätzlich `CancelButton.IsEnabled = true;`
+- `AddButton_Click` und `SaveButton_Click` jeweils am Ende ergänzen: zusätzlich `CancelButton.IsEnabled = false;`
+- Neuen Handler `CancelButton_Click` anlegen:
+  1. Eingabefelder zurücksetzen (Clear / SelectedDate=null / SelectedIndex=-1)
+  2. `_editingTransaction = null;`, `SaveButton.IsEnabled = false;`, `CancelButton.IsEnabled = false;`
+  3. **Keine** Schreiboperation auf `_editingTransaction` – die Änderungen werden verworfen, das Original in der Liste bleibt unangetastet
+
+---
+
 ## Status
 
 Work in Progress – wird laufend erweitert, während ich neue Konzepte lerne.

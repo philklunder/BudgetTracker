@@ -600,3 +600,301 @@ Sie haben **unterschiedliche Funktionen**:
 - Der zweite (Bestätigung) ist eine **Entscheidung** – `YesNo`-Buttons + `Question`-Icon.
 
 Konsistenz nach Funktion, nicht nach Form: das richtige Icon hilft dem Nutzer, sofort einzuordnen, was von ihm erwartet wird.
+
+---
+
+## Schritt 8 – Einträge bearbeiten
+
+Schritt 8 schließt v2 ab. Wir bauen die Bearbeiten-Funktion in vier kleinen Etappen auf: erst der Button (8.1), dann das Laden der Werte ins Formular (8.2), dann das Speichern in den bestehenden Eintrag (8.3), und zum Schluss eine Abbrechen-Möglichkeit (8.4).
+
+### 8.1 Bearbeiten-Button im UI hinzufügen
+
+**`MainWindow.xaml` – Aktionsleiste um zweiten Button erweitern:**
+
+```xml
+<StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+    <Button x:Name="EditButton"
+            Content="Bearbeiten"
+            Click="EditButton_Click"
+            Padding="20,5"
+            Margin="0,0,10,0"/>
+    <Button x:Name="DeleteButton"
+            Content="Löschen"
+            Click="DeleteButton_Click"
+            Padding="20,5"
+            Margin="0,0,10,0"/>
+</StackPanel>
+```
+
+**`MainWindow.xaml.cs` – leerer Click-Handler-Stub:**
+
+```csharp
+private void EditButton_Click(object sender, RoutedEventArgs e)
+{
+    // Logik folgt in Schritt 8.2
+}
+```
+
+**Warum den Bearbeiten-Button links?**
+UX-Konvention: weniger destruktive Aktionen kommen vor destruktiveren. Bearbeiten ist umkehrbar (zur Not zurückeditieren), Löschen nicht. Dadurch landet die „gefährlichste" Schaltfläche am Rand und erschwert Versehensklicks.
+
+**Warum genügt das einfache Voranstellen im XAML?**
+`StackPanel` mit `Orientation="Horizontal"` ordnet seine Kinder in der Reihenfolge an, in der sie im XAML stehen. Wer zuerst kommt, steht links – keine extra Konfiguration nötig.
+
+**Warum wieder ein leerer Stub?**
+Gleiches Muster wie in 4.2 und 7.1: sobald `Click="EditButton_Click"` im XAML steht, sucht WPF beim Kompilieren nach einer Methode dieses Namens. Fehlt sie, scheitert der Build.
+
+### 8.2 Werte des ausgewählten Eintrags ins Formular laden
+
+```csharp
+private void EditButton_Click(object sender, RoutedEventArgs e)
+{
+    // 1. Ausgewählten Eintrag aus der ListView holen
+    Transaction? selected = TransactionListView.SelectedItem as Transaction;
+
+    // 2. Wenn nichts ausgewählt ist: Hinweis anzeigen und abbrechen
+    if (selected is null)
+    {
+        MessageBox.Show("Bitte zuerst einen Eintrag in der Liste auswählen.");
+        return;
+    }
+
+    // 3. Werte des Eintrags in die Formularfelder laden
+    AmountTextBox.Text = selected.Amount.ToString();
+    CategoryTextBox.Text = selected.Category;
+    DescriptionTextBox.Text = selected.Description;
+    DatePicker.SelectedDate = selected.Date;
+    TypeComboBox.SelectedIndex = selected.Type == TransactionType.Income ? 0 : 1;
+}
+```
+
+**Rück-Konvertierung – die zentrale Hürde**
+
+Beim Hinzufügen (Schritt 4.3) sind wir vom UI-String **zum** typisierten Wert gegangen. Beim Bearbeiten gehen wir den umgekehrten Weg:
+
+| Property | Quelle (Transaction) | Ziel (UI-Element) | Konvertierung |
+|----------|---------------------|-------------------|---------------|
+| `Amount` | `decimal` | `AmountTextBox.Text` (`string`) | `.ToString()` |
+| `Category` | `string` | `CategoryTextBox.Text` | direkt |
+| `Description` | `string` | `DescriptionTextBox.Text` | direkt |
+| `Date` | `DateTime` | `DatePicker.SelectedDate` (`DateTime?`) | impliziter Cast `DateTime` → `DateTime?` |
+| `Type` | `TransactionType` | `TypeComboBox.SelectedIndex` (`int`) | `Income → 0`, `Expense → 1` |
+
+**Warum `selected.Amount.ToString()` ohne Format-Argument?**
+`decimal.ToString()` ohne Argumente verwendet die aktuelle Kultur (de-CH bei uns). Beim Speichern parsen wir den Text mit `decimal.TryParse(...)` – dieselbe Kultur, also passt der Round-Trip. Ein Format wie `"C"` wäre **schädlich**, weil dann „CHF 12.50" im Textfeld stünde und `TryParse` das nicht zurück lesen kann.
+
+**Warum geht `DatePicker.SelectedDate = selected.Date` einfach so?**
+`Date` ist `DateTime`, `SelectedDate` ist `DateTime?`. Jeder konkrete `DateTime`-Wert lässt sich **implizit** in `DateTime?` umwandeln – ein nullables Feld kann natürlich auch einen echten Wert aufnehmen. Die andere Richtung (von `DateTime?` nach `DateTime`) bräuchte den `??`-Operator – die *enge* Richtung verlangt explizite Behandlung.
+
+**Warum `SelectedIndex` statt `SelectedItem`?**
+Unsere ComboBox hat zwei feste `ComboBoxItem`s im XAML (Index 0 = Einnahme, Index 1 = Ausgabe). Mit dem ternären Operator ist die Zuordnung Enum → UI eine Zeile. `SelectedItem` würde verlangen, dass wir ein passendes `ComboBoxItem`-Objekt aus den `Items` heraussuchen – mehr Code, kein Mehrwert bei dieser fixen Zwei-Optionen-Auswahl.
+
+**Bewusste Lücke nach 8.2:** Beim Klick auf „Hinzufügen" mit geladenen Werten entsteht ein **neuer** Eintrag, das Original bleibt unverändert. Das ist gewollt – wir bauen Schritt für Schritt und reparieren das in 8.3.
+
+### 8.3 Speichern-Button + Bearbeitungs-Modus
+
+**`MainWindow.xaml` – AddButton in StackPanel verpacken, SaveButton daneben:**
+
+```xml
+<StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+    <Button x:Name="AddButton"
+            Content="Hinzufügen"
+            Click="AddButton_Click"
+            Padding="20,5"
+            Margin="0,0,10,0"/>
+    <Button x:Name="SaveButton"
+            Content="Speichern"
+            Click="SaveButton_Click"
+            Padding="20,5"
+            IsEnabled="False"/>
+</StackPanel>
+```
+
+**`MainWindow.xaml.cs` – neues Feld für den Modus:**
+
+```csharp
+private Transaction? _editingTransaction = null;
+```
+
+| Wert | Bedeutung |
+|------|-----------|
+| `null` | Kein Eintrag wird bearbeitet → Hinzufügen-Modus |
+| Konkretes `Transaction`-Objekt | Dieser Eintrag wird gerade bearbeitet → Speichern-Modus |
+
+**`EditButton_Click` aus 8.2 am Ende ergänzen:**
+
+```csharp
+// 4. In den Bearbeitungs-Modus wechseln
+_editingTransaction = selected;
+SaveButton.IsEnabled = true;
+```
+
+**`AddButton_Click` am Ende ergänzen:**
+
+```csharp
+// Falls vorher der Bearbeitungs-Modus aktiv war: beenden
+_editingTransaction = null;
+SaveButton.IsEnabled = false;
+```
+
+**Neuer Handler `SaveButton_Click`:**
+
+```csharp
+private void SaveButton_Click(object sender, RoutedEventArgs e)
+{
+    // Sicherheits-Check: ohne aktiven Bearbeitungs-Modus nichts tun
+    if (_editingTransaction is null)
+    {
+        return;
+    }
+
+    // 1. Betrag auslesen und in decimal umwandeln
+    if (!decimal.TryParse(AmountTextBox.Text, out decimal amount))
+    {
+        MessageBox.Show("Bitte einen gültigen Betrag eingeben.");
+        return;
+    }
+
+    // 2. Kategorie und Beschreibung als String auslesen
+    string category = CategoryTextBox.Text;
+    string description = DescriptionTextBox.Text;
+
+    // 3. Datum auslesen (falls nichts gewählt: heute)
+    DateTime date = DatePicker.SelectedDate ?? DateTime.Today;
+
+    // 4. Typ aus der ComboBox auslesen und auf das Enum mappen
+    ComboBoxItem? selectedItem = TypeComboBox.SelectedItem as ComboBoxItem;
+    string? typeText = selectedItem?.Content?.ToString();
+    TransactionType type = typeText == "Einnahme"
+        ? TransactionType.Income
+        : TransactionType.Expense;
+
+    // 5. Werte ins bestehende Objekt schreiben (statt ein neues anzulegen)
+    _editingTransaction.Amount = amount;
+    _editingTransaction.Category = category;
+    _editingTransaction.Description = description;
+    _editingTransaction.Date = date;
+    _editingTransaction.Type = type;
+
+    // 6. ListView zwingen, ihre Anzeige neu zu zeichnen
+    TransactionListView.Items.Refresh();
+
+    // 7. Eingabefelder zurücksetzen
+    AmountTextBox.Clear();
+    CategoryTextBox.Clear();
+    DescriptionTextBox.Clear();
+    DatePicker.SelectedDate = null;
+    TypeComboBox.SelectedIndex = -1;
+
+    // 8. Bearbeitungs-Modus beenden
+    _editingTransaction = null;
+    SaveButton.IsEnabled = false;
+
+    // 9. Kontostand aktualisieren
+    UpdateBalance();
+}
+```
+
+**Warum ein „nullable Referenz als Modus-Schalter"?**
+Statt eine zusätzliche `bool _isEditing`-Variable + eine separate `Transaction _editingItem`-Referenz zu pflegen, kombinieren wir beides in einer einzigen Variable. Eine Variable, eine Bedeutung – weniger Stellen, an denen die zwei Werte auseinanderlaufen können (Inkonsistenz vermeiden). Solche **State-Maschinen mit nullable Referenzen** sind ein häufiges, leichtgewichtiges Pattern für einfache Modi.
+
+**Warum `TransactionListView.Items.Refresh()`?**
+`ObservableCollection<T>` löst Events nur bei **Strukturänderungen** der Liste aus (Add, Remove, Insert, Replace). Eine reine Property-Änderung an einem bestehenden Element (`_editingTransaction.Amount = ...`) wird **nicht** signalisiert – die ListView weiß nichts vom Update und zeigt weiterhin die alten Werte.
+
+**Drei Wege das zu lösen:**
+
+| Variante | Aufwand | Wann sinnvoll |
+|----------|---------|---------------|
+| `INotifyPropertyChanged` in `Transaction` implementieren | hoch | sauber, idiomatisch in MVVM – heben wir uns für v5 auf |
+| Element in der Liste durch ein neues ersetzen | mittel | wenn Original-Referenz egal ist |
+| `Items.Refresh()` aufrufen | minimal | pragmatisch für kleine Listen |
+
+Wir nehmen `Items.Refresh()` – ein „WPF-Hammer", der die ListView zwingt, alle Bindings neu auszuwerten. Bei wenigen Einträgen kein Performance-Problem.
+
+**Warum `IsEnabled="False"` schon im XAML?**
+Beim Programmstart ist nichts ausgewählt, der Speichern-Button hätte keinen Sinn. Wir starten ihn deaktiviert; aktiviert wird er erst durch `EditButton_Click`. Disabled-Zustand = grauer Button, keine Klicks.
+
+**Warum nicht `Visibility="Collapsed"` (verstecken) statt `IsEnabled="False"`?**
+`Collapsed` würde den Button **komplett aus dem Layout** entfernen, das StackPanel würde sich verkleinern. Beim Wechsel der Modi gäbe es einen Layout-Sprung. Mit `IsEnabled` bleibt das Layout stabil, nur die Verfügbarkeit ändert sich – ruhigere UX.
+
+**Warum der Sicherheits-Check `if (_editingTransaction is null) return;` ganz am Anfang?**
+Theoretisch kann der Button nicht geklickt werden, solange `_editingTransaction == null` (er wäre dann disabled). Aber: defensives Programmieren schadet nicht, und der Compiler braucht den Check, damit er weiß, dass die Variable in den nachfolgenden `_editingTransaction.Amount = amount;`-Zuweisungen garantiert nicht-null ist. Sonst gibt es Warnungen.
+
+**Warum der ähnliche Code-Block wie in `AddButton_Click`?**
+Eingaben auslesen + validieren ist beide Male identisch. Wir lassen die Duplikation bewusst stehen – sie ist nur ~15 Zeilen lang, beide Methoden bleiben so jeweils linear lesbar. Im v5-Refactoring auf MVVM räumen wir das mit der gesamten UI-Logik gemeinsam auf. Vorzeitig zu abstrahieren würde mehr Komplexität bringen, als sie wegnimmt – Stichwort *„premature abstraction"*.
+
+**Warum auch in `AddButton_Click` den Modus zurücksetzen?**
+Stell dir vor: Nutzer klickt „Bearbeiten", ändert Werte, klickt aber **„Hinzufügen"** statt „Speichern". Dann entsteht ein neuer Eintrag (gewünscht), aber `_editingTransaction` würde noch auf das Original zeigen. Würde der Nutzer jetzt direkt auf „Speichern" klicken, hätten wir leere Werte ins Original geschrieben (Bug!). Indem wir nach jedem `AddButton_Click` den Modus beenden, ist dieser Pfad sauber.
+
+### 8.4 Abbrechen-Button
+
+**`MainWindow.xaml` – dritten Button neben Speichern setzen, dem SaveButton ein Margin geben:**
+
+```xml
+<StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+    <Button x:Name="AddButton"
+            Content="Hinzufügen"
+            Click="AddButton_Click"
+            Padding="20,5"
+            Margin="0,0,10,0"/>
+    <Button x:Name="SaveButton"
+            Content="Speichern"
+            Click="SaveButton_Click"
+            Padding="20,5"
+            Margin="0,0,10,0"
+            IsEnabled="False"/>
+    <Button x:Name="CancelButton"
+            Content="Abbrechen"
+            Click="CancelButton_Click"
+            Padding="20,5"
+            IsEnabled="False"/>
+</StackPanel>
+```
+
+**`EditButton_Click` ergänzen:**
+
+```csharp
+CancelButton.IsEnabled = true;
+```
+
+**`AddButton_Click` und `SaveButton_Click` jeweils ergänzen:**
+
+```csharp
+CancelButton.IsEnabled = false;
+```
+
+**Neuer Handler `CancelButton_Click`:**
+
+```csharp
+private void CancelButton_Click(object sender, RoutedEventArgs e)
+{
+    // 1. Eingabefelder zurücksetzen (verworfene Änderungen verwerfen)
+    AmountTextBox.Clear();
+    CategoryTextBox.Clear();
+    DescriptionTextBox.Clear();
+    DatePicker.SelectedDate = null;
+    TypeComboBox.SelectedIndex = -1;
+
+    // 2. Bearbeitungs-Modus beenden
+    _editingTransaction = null;
+    SaveButton.IsEnabled = false;
+    CancelButton.IsEnabled = false;
+}
+```
+
+**Was ist die Aufgabe von Abbrechen?**
+Eine reine **Notbremse**: Felder leer, Modus weg, Save/Cancel wieder grau. Das Original in der Liste bleibt unangetastet, weil wir **nichts** in `_editingTransaction` zurückschreiben. Im Gegensatz zu Speichern ist Abbrechen **schreibfrei** – die geladenen Form-Werte werden einfach verworfen.
+
+**Warum CancelButton parallel zu SaveButton an-/ausschalten?**
+Beide Buttons gehören zum Bearbeitungs-Modus und sollen nur in diesem Modus geklickt werden können. Sie laufen synchron: aktiviert mit dem Wechsel in den Modus, deaktiviert mit dem Verlassen. Bei jedem Modus-Verlassen (Save, Cancel, Add) deaktivieren wir beide Buttons gemeinsam.
+
+**Was fällt dir an `CancelButton_Click`, `SaveButton_Click` und `AddButton_Click` auf?**
+Drei Stellen, die alle dieselben drei Zeilen am Ende haben:
+
+```csharp
+_editingTransaction = null;
+SaveButton.IsEnabled = false;
+CancelButton.IsEnabled = false;
+```
+
+Plus das Leeren der Eingabefelder. Das ist eine klassische Stelle, an der man später mit einer kleinen Helper-Methode (z. B. `ResetForm()` oder `ExitEditMode()`) Duplikate beseitigt – aber **bewusst noch nicht**. Solche Aufräumarbeiten machen wir gebündelt im v5-Refactoring auf MVVM. Drei ähnliche Zeilen sind besser als eine voreilige Abstraktion, die später wieder auseinandergenommen werden müsste, wenn MVVM andere Anforderungen mitbringt.
